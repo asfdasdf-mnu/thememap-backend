@@ -58,7 +58,7 @@ Codespaces 실제 생성·실행은 아직 확인 전입니다. 사용량/계정
 
 `python -m pytest -q`: 검색·다대다 조회·샘플 출처 표시·404/422·중복/외래키 제약·재실행·CORS 등 16개 검사. 테스트는 임시 SQLite DB를 기본 사용합니다. `TEST_DATABASE_URL`은 반드시 **테스트 전용 PostgreSQL DB**를 지정하세요.
 
-GitHub Actions는 SQLite 및 PostgreSQL 두 작업으로 구성했습니다. 원격 실행 결과는 Actions에서 확인해야 하며 설정 파일 존재만으로 PostgreSQL 검증 완료를 의미하지 않습니다.
+GitHub Actions의 Linux 환경에서도 SQLite 및 PostgreSQL 17 검사가 모두 통과했습니다. 증빙: https://github.com/asfdasdf-mnu/thememap-backend/actions/runs/43922277701 (코드 커밋 829b248). Docker Compose 전체 부팅과 Codespaces 실제 실행은 별도 확인이 필요합니다.
 
 초기 테이블 생성은 `create_all`입니다. 기존 테이블 구조를 변경하는 마이그레이션, 관리자 인증/수정 API, 실데이터 수집, 프론트 연동, 운영 배포는 아직 구현하지 않았습니다. 읽기 전용 API와 샘플 적재 스크립트만 제공합니다.
 
