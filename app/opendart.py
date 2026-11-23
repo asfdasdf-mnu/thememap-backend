@@ -95,7 +95,7 @@ def parse_companies(payload):
         corp = (record.findtext('corp_code') or '').strip()
         name = (record.findtext('corp_name') or '').strip()
         date = (record.findtext('modify_date') or '').strip()
-        if not (re.fullmatch(r'[0-9]{6}', code) and re.fullmatch(r'[0-9]{8}', corp)
+        if not (re.fullmatch(r'[0-9A-Z]{6}', code) and re.fullmatch(r'[0-9]{8}', corp)
                 and name and len(name) <= 200 and re.fullmatch(r'[0-9]{8}', date)):
             raise DartError('고유번호 파일에 잘못된 회사 식별 정보가 있습니다.')
         try:
@@ -108,7 +108,7 @@ def parse_companies(payload):
         seen_stock.add(code)
         companies.append(dict(corp_code=corp, corp_name=name, stock_code=code, modify_date=date))
     return dict(source_url=ENDPOINT, guide_url=GUIDE,
-                fetched_at=datetime.now(timezone.utc).isoformat(),
+                fetched_at=None, converted_at=datetime.now(timezone.utc).isoformat(),
                 skipped_without_stock_code=skipped,
                 companies=sorted(companies, key=lambda item: item['stock_code']))
 
@@ -133,15 +133,26 @@ def save_review(path, data):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', default='.local/dart-companies.json')
+    parser.add_argument('--input-zip', help='Convert a previously downloaded ZIP without an API request')
     args = parser.parse_args()
     if Path(args.output).exists():
         parser.exit(1, '출력 파일이 이미 있습니다. 다른 파일명을 지정하세요.\n')
     try:
-        data = parse_companies(download(os.getenv('OPENDART_API_KEY', '')))
+        received_at = None
+        if args.input_zip:
+            with Path(args.input_zip).open('rb') as file:
+                payload = file.read(MAX_DOWNLOAD + 1)
+            if len(payload) > MAX_DOWNLOAD:
+                raise DartError('입력 ZIP 크기 제한을 초과했습니다.')
+        else:
+            payload = download(os.getenv('OPENDART_API_KEY', ''))
+            received_at = datetime.now(timezone.utc).isoformat()
+        data = parse_companies(payload)
+        data['fetched_at'] = received_at
         save_review(args.output, data)
     except (DartError, OSError) as error:
         # Suppress chained exceptions and paths/URLs in OS errors.
-        message = str(error) if isinstance(error, DartError) else '검토 파일을 저장할 수 없습니다.'
+        message = str(error) if isinstance(error, DartError) else '입력 파일을 읽거나 검토 파일을 저장할 수 없습니다.'
         parser.exit(1, message + '\n')
     print(json.dumps(dict(companies=len(data['companies']),
                           skipped_without_stock_code=data['skipped_without_stock_code'],

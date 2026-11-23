@@ -68,3 +68,20 @@ def test_admin_preflight(client):
         'Access-Control-Request-Headers': 'X-Admin-Key,Content-Type',
     })
     assert response.status_code == 200
+
+
+def test_alphanumeric_stock_roundtrip(client):
+    code = '0068Y0'
+    assert client.post('/api/admin/stocks', json={'code': code, 'name': '가상기업', 'market': 'DEMO'}).status_code == 201
+    assert client.put(f'/api/admin/stocks/{code}', json={'name': '수정 기업', 'market': 'DEMO'}).status_code == 200
+    theme = client.post('/api/admin/themes', json={'name': '가상 테마'}).json()['id']
+    path = f'/api/admin/themes/{theme}/stocks/{code}'
+    evidence = {'reason': '가상 설정', 'source_title': '가상 샘플'}
+    assert client.post(path, json=evidence).status_code == 201
+    evidence['reason'] = '수정 근거'
+    assert client.put(path, json=evidence).status_code == 200
+    response = client.get(f'/api/stocks/{code}')
+    assert response.status_code == 200
+    assert response.json()['code'] == code
+    assert response.json()['themes'][0]['reason'] == '수정 근거'
+    assert client.get('/api/stocks/0068y0').status_code == 422

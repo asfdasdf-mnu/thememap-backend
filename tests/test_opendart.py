@@ -97,6 +97,7 @@ def test_cli_saves_without_key_or_database(tmp_path, monkeypatch, capsys):
     dart.main()
     data = json.loads(path.read_text())
     assert len(data['companies']) == 1
+    assert data['fetched_at'] is not None
     assert KEY not in path.read_text()
     assert json.loads(capsys.readouterr().out)['database_changed'] is False
     original = path.read_text()
@@ -114,3 +115,41 @@ def test_cli_missing_key_has_no_output(tmp_path, monkeypatch, capsys):
     assert error.value.code == 1
     assert not path.exists()
     assert 'OPENDART_API_KEY' in capsys.readouterr().err
+
+
+def test_cli_offline_zip_needs_no_key_or_network(tmp_path, monkeypatch, capsys):
+    source = tmp_path / 'corpcode.zip'
+    target = tmp_path / 'review.json'
+    source.write_bytes(archive('<result>'+RECORD+'</result>'))
+    monkeypatch.delenv('OPENDART_API_KEY', raising=False)
+    monkeypatch.setattr(dart, 'download', lambda *args: pytest.fail('unexpected network'))
+    monkeypatch.setattr('sys.argv', ['opendart', '--input-zip', str(source), '--output', str(target)])
+    dart.main()
+    result = json.loads(target.read_text())
+    assert len(result['companies']) == 1
+    assert result['fetched_at'] is None
+    assert result['converted_at']
+    assert json.loads(capsys.readouterr().out)['database_changed'] is False
+
+
+def test_cli_offline_zip_size_limit(tmp_path, monkeypatch, capsys):
+    source = tmp_path / 'corpcode.zip'
+    target = tmp_path / 'review.json'
+    source.write_bytes(b'PKoversized')
+    monkeypatch.setattr(dart, 'MAX_DOWNLOAD', 3)
+    monkeypatch.setattr('sys.argv', ['opendart', '--input-zip', str(source), '--output', str(target)])
+    with pytest.raises(SystemExit):
+        dart.main()
+    assert not target.exists()
+    assert '크기 제한' in capsys.readouterr().err
+
+
+def test_alphanumeric_stock_code():
+    result = dart.parse_companies(archive('<result>'+RECORD.replace('005930', '0068Y0')+'</result>'))
+    assert result['companies'][0]['stock_code'] == '0068Y0'
+
+
+@pytest.mark.parametrize('code', ['0068y0', '0068-0', '0068 Y', '0068Y00'])
+def test_reject_invalid_stock_code_characters(code):
+    with pytest.raises(dart.DartError):
+        dart.parse_companies(archive('<result>'+RECORD.replace('005930', code)+'</result>'))
