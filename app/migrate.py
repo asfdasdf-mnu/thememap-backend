@@ -38,7 +38,12 @@ def migrate(engine, adopt_existing=False):
             checks = inspect(connection).get_check_constraints('stocks') if 'stocks' in tables else []
             valid_check = any(c['name'] == 'stock_code_length' and
                               ''.join(c['sqltext'].split()).replace('::text', '').replace('(', '').replace(')', '') == 'lengthcode=6' for c in checks)
-            if differences or not valid_check:
+            inspector = inspect(connection)
+            valid_primary_keys = all(
+                inspector.get_pk_constraint(table.name)['constrained_columns'] ==
+                [column.name for column in table.primary_key.columns]
+                for table in Base.metadata.sorted_tables if table.name in tables)
+            if differences or not valid_check or not valid_primary_keys:
                 raise RuntimeError('Existing schema differs from baseline; no adoption performed.')
             command.stamp(config, '0001')
         command.upgrade(config, 'head')
