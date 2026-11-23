@@ -143,3 +143,16 @@ python -m alembic current
 `python -m alembic downgrade base`는 모든 테이블과 데이터를 삭제합니다. 테스트용 빈 DB의 롤백 검증에만 사용하세요. 실제 데이터가 있는 DB의 되돌리기는 백업 복구 및 해당 변경별 절차를 검토해야 합니다.
 
 마이그레이션 테스트는 신규 생성, 재실행, 모델과의 일치, 롤백 후 재생성, 기존 데이터 유지, 구조 불일치 거부를 확인합니다. `TEST_DATABASE_URL`을 설정하면 해당 DB의 테이블을 삭제하고 검증하므로 반드시 폐기 가능한 테스트 전용 DB만 지정하세요.
+
+## 실데이터 준비와 CSV 검증
+
+공식 출처 검토 결과와 CSV 작성·입력 절차는 [DATA-SOURCES.md](docs/DATA-SOURCES.md)를 참고하세요. 실제 외부 데이터 수집은 아직 연결하지 않았습니다. 이미 등록된 테마에 종목과 근거를 연결하는 개발자용 입력 도구를 제공합니다.
+
+```sh
+# 기본은 검증만 수행 (DB 변경 없음)
+python -m app.import_data examples/reviewed-data.sample.csv
+# 검증한 파일을 일괄 입력
+python -m app.import_data examples/reviewed-data.sample.csv --apply
+```
+
+예시는 가상 데이터이며 테마 ID 1이 필요합니다. 기존 DB 내용과 충돌하면 전체를 중단하며, 같은 파일 재입력은 기존 내용을 덮어쓰지 않습니다. 외부 출처 URL의 존재·내용·이용 권한은 별도 확인해야 합니다.
