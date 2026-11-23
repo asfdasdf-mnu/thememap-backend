@@ -4,12 +4,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from app.main import create_app
+from app.migrate import migrate
 from app.models import ThemeStock, Theme
 from app.seed import seed
 
 @pytest.fixture
 def client(tmp_path):
     app = create_app(os.getenv('TEST_DATABASE_URL') or f'sqlite:///{tmp_path / "test.db"}')
+    migrate(app.state.engine)
     with TestClient(app) as client:
         with app.state.sessions() as session:
             seed(session)

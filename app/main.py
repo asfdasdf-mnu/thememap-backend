@@ -8,7 +8,8 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from .admin import admin_router
-from .database import Base, make_engine, session_factory
+from .migrate import require_current
+from .database import make_engine, session_factory
 from .models import Stock, Theme, ThemeStock
 from .schemas import StockDetail, ThemeList, ThemeStocks
 
@@ -18,7 +19,7 @@ def create_app(database_url=None):
 
     @asynccontextmanager
     async def lifespan(app):
-        Base.metadata.create_all(engine)
+        require_current(engine)
         yield
         engine.dispose()
 

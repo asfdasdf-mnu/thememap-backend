@@ -13,6 +13,7 @@ python -m venv .venv
 # Windows: .venv\Scripts\activate
 source .venv/bin/activate
 pip install -r requirements.lock.txt
+python -m app.migrate
 python -m app.seed
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
@@ -60,7 +61,7 @@ Codespaces 실제 생성·실행은 아직 확인 전입니다. 사용량/계정
 
 GitHub Actions의 Linux 환경에서도 SQLite 및 PostgreSQL 17 검사가 모두 통과했습니다. 증빙: https://github.com/asfdasdf-mnu/thememap-backend/actions/runs/43922277701 (코드 커밋 829b248). Docker Compose 전체 부팅과 Codespaces 실제 실행은 별도 확인이 필요합니다.
 
-초기 테이블 생성은 `create_all`입니다. 기존 테이블 구조를 변경하는 마이그레이션, 실데이터 수집, 프론트 연동, 운영 배포는 아직 구현하지 않았습니다. 관리자 API는 기존 테이블을 사용하므로 이번 변경에는 DB 마이그레이션이 필요하지 않습니다.
+테이블 구조는 Alembic으로 관리합니다. 서버와 샘플 적재는 최신 DB 버전을 확인하며 임의로 테이블을 생성하지 않습니다. 실데이터 수집, 프론트 연동, 운영 배포는 아직 구현하지 않았습니다.
 
 ## 구조
 
@@ -108,3 +109,37 @@ macOS/Linux에서는 `export ADMIN_API_KEY='직접 만든 긴 임의의 키'` �
 실데이터(`is_sample=false`)는 HTTP(S) 출처 URL이 필수입니다. URL 존재나 이용 권한을 자동 검증하지는 않습니다. 등록 성공은 201, 수정 성공은 200, 없는 대상은 404, 중복은 409, 잘못된 입력은 422입니다. PUT은 부분 수정이 아니며 설명 생략 시 빈 문자열로 교체됩니다.
 
 이번 관리자 변경은 SQLite에서 인증, 등록·수정 후 조회, 중복, 입력 검증, CORS를 포함한 전체 테스트 20개를 통과했습니다. PostgreSQL에서 이번 변경의 실행 결과는 GitHub Actions에서 별도로 확인해야 합니다.
+
+
+## DB 마이그레이션 (Alembic)
+
+모든 명령은 저장소 루트에서 가상환경을 활성화하고 실행합니다. 기본 DB는 `sqlite:///./thememap.db`이며 PostgreSQL은 기존과 같이 `DATABASE_URL`로 지정합니다. 작업 전 서버를 종료하고 DB를 백업하세요.
+
+### 새 DB
+
+```sh
+python -m app.migrate
+python -m app.seed
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+`start-demo.cmd`, Docker API 시작, Dev Container 초기 구성에도 마이그레이션 명령을 포함했습니다. 이미 최신 버전이면 다시 실행해도 데이터를 변경하지 않습니다. 마이그레이션 이력이 없는 기존 DB는 자동 전환하지 않고 안내 오류로 중단합니다.
+
+### 기존 DB를 처음 전환할 때
+
+SQLite는 서버 종료 후 `thememap.db` 파일을 다른 이름으로 복사해 백업합니다. PostgreSQL은 `pg_dump` 등으로 백업한 뒤 진행합니다. 기존 DB와 같은 `DATABASE_URL`을 설정한 상태에서:
+
+```sh
+python -m app.migrate --adopt-existing
+python -m alembic current
+```
+
+이 명령은 기존 구조를 고정된 `0001` 기준과 비교합니다. 일치하면 기존 데이터와 테이블을 유지하고 버전 이력만 붙입니다. 불일치하면 중단하므로 DB를 삭제하거나 강제로 `stamp`하지 말고 차이를 확인하세요. Docker의 기존 DB는 호스트에서 `docker compose run --rm api python -m app.migrate --adopt-existing` 실행 후 API를 다시 시작합니다.
+
+### 앞으로 구조를 바꿀 때
+
+모델 변경 후 `python -m alembic revision --autogenerate -m "변경 설명"`으로 변경 파일을 만들고 내용을 검토한 뒤 `python -m app.migrate`를 실행합니다. 자동 생성 결과는 데이터 변환과 일부 제약 변경을 놓칠 수 있으므로 검토해야 합니다. `migrations/baseline.py`와 `0001_initial.py`는 기존 DB 전환을 위한 고정 기준이므로 수정하지 않습니다.
+
+`python -m alembic downgrade base`는 모든 테이블과 데이터를 삭제합니다. 테스트용 빈 DB의 롤백 검증에만 사용하세요. 실제 데이터가 있는 DB의 되돌리기는 백업 복구 및 해당 변경별 절차를 검토해야 합니다.
+
+마이그레이션 테스트는 신규 생성, 재실행, 모델과의 일치, 롤백 후 재생성, 기존 데이터 유지, 구조 불일치 거부를 확인합니다. `TEST_DATABASE_URL`을 설정하면 해당 DB의 테이블을 삭제하고 검증하므로 반드시 폐기 가능한 테스트 전용 DB만 지정하세요.

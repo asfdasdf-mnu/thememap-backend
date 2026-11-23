@@ -1,5 +1,6 @@
 """Explicit sample import, never overwrites existing records."""
-from .database import Base, make_engine, session_factory
+from .migrate import require_current
+from .database import make_engine, session_factory
 from .models import Stock, Theme, ThemeStock
 
 THEMES = [(1, '반도체', '반도체 설계·생산·장비 분야 예시'), (2, '인공지능', 'AI 서비스 및 인프라 분야 예시'), (3, '이차전지', '배터리와 소재 분야 예시')]
@@ -27,7 +28,7 @@ def seed(session):
 
 if __name__ == '__main__':
     engine = make_engine()
-    Base.metadata.create_all(engine)
+    require_current(engine)
     with session_factory(engine)() as session:
         seed(session)
     engine.dispose()
