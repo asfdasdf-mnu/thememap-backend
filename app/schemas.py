@@ -1,4 +1,33 @@
-from pydantic import BaseModel
+from typing import Annotated
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints, model_validator
+
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+Content = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10000)]
+
+class AdminInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+class ThemeWrite(AdminInput):
+    name: Name
+    description: Annotated[str, StringConstraints(max_length=10000)] = ''
+
+class StockWrite(ThemeWrite):
+    market: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
+
+class StockCreate(StockWrite):
+    code: str = Field(pattern=r'^[0-9]{6}$')
+
+class EvidenceWrite(AdminInput):
+    reason: Content
+    source_title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    source_url: HttpUrl | None = None
+    is_sample: bool = True
+
+    @model_validator(mode='after')
+    def require_source(self):
+        if not self.is_sample and self.source_url is None:
+            raise ValueError('실데이터 근거에는 출처 URL이 필요합니다.')
+        return self
 
 class ThemeOut(BaseModel):
     id: int

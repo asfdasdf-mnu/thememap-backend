@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from .admin import admin_router
 from .database import Base, make_engine, session_factory
 from .models import Stock, Theme, ThemeStock
 from .schemas import StockDetail, ThemeList, ThemeStocks
@@ -26,7 +27,9 @@ def create_app(database_url=None):
     app.state.engine = engine
     app.state.sessions = sessions
     origins = [s.strip() for s in os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',') if s.strip()]
-    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=['GET'], allow_headers=['Content-Type'])
+    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=['GET', 'POST', 'PUT'], allow_headers=['Content-Type', 'X-Admin-Key'])
+
+    app.include_router(admin_router(sessions))
 
     def get_session():
         with sessions() as session:
