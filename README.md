@@ -201,3 +201,15 @@ python -m app.opendart --input-zip .local/corpcode.zip --output .local/dart-comp
 `--input-zip` 모드는 입력 파일 크기와 내부 구조를 같은 기준으로 검사하고 DB에는 쓰지 않습니다. 원본 ZIP 및 변환 결과는 `.local/` 등 Git 제외 경로에 보관하세요. 출력 파일이 있으면 다른 이름을 지정해야 합니다.
 
 종목 코드는 앞자리 0을 유지한 대문자 영문·숫자 6자리 문자열입니다. 실제 파일에서 영문 혼합 코드가 확인되어 조회·관리자·CSV 검사도 이 형식을 허용합니다. `fetched_at`은 온라인 수신 시각이며, `--input-zip` 변환은 원래 수신 시점을 알 수 없어 `null`로 기록합니다. `converted_at`은 변환 시각입니다.
+
+## 검토한 실제 데이터의 입력·조회 검증
+
+삼성전자·SK하이닉스의 시장과 사업보고서를 확인하고 별도 DB에서 입력·조회까지 검증했습니다. 출처·기준일·실행 결과와 노트북에서 확인하는 방법은 [실데이터 2종목 검증 기록](docs/REAL-DATA-PILOT.md)을 참고하세요. 기본 샘플 DB는 그대로 유지합니다.
+
+검토한 CSV가 있으면 새 SQLite DB로 같은 흐름을 반복할 수 있습니다.
+
+```sh
+python -m app.verify_import .local/reviewed-semiconductor-20261124.csv --database-path .local/reviewed-pilot-new.db --theme-name 반도체
+```
+
+기존 DB 파일은 거부하고, 하나의 테마에 연결되며 모든 행이 `is_sample=false`인 CSV만 허용합니다. CSV의 테마 ID를 사용해 해당 이름의 테마를 생성한 뒤 미리보기·입력·재입력·조회 API 검증 결과를 JSON으로 출력합니다. 테마 분류와 출처 내용은 실행 전에 별도로 검토해야 합니다.
