@@ -95,7 +95,7 @@ macOS/Linux에서는 `export ADMIN_API_KEY='직접 만든 긴 임의의 키'` �
 |---|---|
 | POST /api/admin/themes | 테마 등록: name, description(선택) |
 | PUT /api/admin/themes/{theme_id} | 테마 이름·설명 전체 교체 |
-| POST /api/admin/stocks | 종목 등록: code(숫자 6자리), name, market, description(선택) |
+| POST /api/admin/stocks | 종목 등록: code(대문자 영문·숫자 6자리), name, market, description(선택) |
 | PUT /api/admin/stocks/{code} | 종목 이름·시장·설명 전체 교체 (코드 유지) |
 | POST /api/admin/themes/{theme_id}/stocks/{code} | 테마–종목 연결 및 근거 등록 |
 | PUT /api/admin/themes/{theme_id}/stocks/{code} | 기존 연결의 근거 전체 교체 |
@@ -146,7 +146,7 @@ python -m alembic current
 
 ## 실데이터 준비와 CSV 검증
 
-공식 출처 검토 결과와 CSV 작성·입력 절차는 [DATA-SOURCES.md](docs/DATA-SOURCES.md)를 참고하세요. 실제 외부 데이터 수집은 아직 연결하지 않았습니다. 이미 등록된 테마에 종목과 근거를 연결하는 개발자용 입력 도구를 제공합니다.
+공식 출처 검토 결과와 CSV 작성·입력 절차는 [DATA-SOURCES.md](docs/DATA-SOURCES.md)를 참고하세요. OpenDART 종목 식별 정보의 실제 파일 수신·변환을 확인했습니다. 검토 파일과 DB에 저장된 샘플 데이터는 별도로 관리합니다. 이미 등록된 테마에 종목과 근거를 연결하는 개발자용 입력 도구를 제공합니다.
 
 ```sh
 # 기본은 검증만 수행 (DB 변경 없음)
@@ -156,3 +156,48 @@ python -m app.import_data examples/reviewed-data.sample.csv --apply
 ```
 
 예시는 가상 데이터이며 테마 ID 1이 필요합니다. 기존 DB 내용과 충돌하면 전체를 중단하며, 같은 파일 재입력은 기존 내용을 덮어쓰지 않습니다. 외부 출처 URL의 존재·내용·이용 권한은 별도 확인해야 합니다.
+
+## OpenDART 종목 식별 정보 받기
+
+OpenDART에서 발급한 인증키를 `OPENDART_API_KEY` 환경변수에 설정한 뒤, 저장소 루트에서 가상환경을 활성화하고 실행합니다. 키를 대화·Git·명령 인자로 보내지 마세요.
+
+Windows 명령 프롬프트:
+
+```bat
+set OPENDART_API_KEY=발급받은40자리인증키
+.venv\Scripts\python.exe -m app.opendart
+```
+
+PowerShell:
+
+```powershell
+$env:OPENDART_API_KEY='발급받은40자리인증키'
+.\.venv\Scripts\python.exe -m app.opendart
+```
+
+macOS/Linux:
+
+```sh
+export OPENDART_API_KEY='발급받은40자리인증키'
+python -m app.opendart
+```
+
+[OpenDART 인증키 신청](https://opendart.fss.or.kr/uss/umt/EgovMberInsertView.do)에서 발급 상태와 사용 IP 등을 확인하세요. 이 도구는 `.env` 파일을 자동으로 읽지 않습니다.
+
+검토 결과는 Git 제외 경로인 `.local/dart-companies.json`에 저장합니다. DB와 기존 샘플은 변경하지 않습니다. 같은 파일이 있으면 덮어쓰지 않으므로 재수집 시 `--output .local/dart-companies-날짜.json`처럼 새 이름을 지정하세요.
+
+종목 코드가 있는 항목의 `corp_code`(8자리), `stock_code`(6자리), `corp_name`, `modify_date`와 수집 시각·출처 URL을 저장합니다. 시장 구분·테마·연관 근거는 포함하지 않습니다. 원문 검토 후 필요한 종목을 골라 CSV에 옮기고 시장과 테마 근거를 별도로 확인해야 합니다. DART 변경일자는 수집 시각이나 상장 상태 확인 시각과 다릅니다.
+
+연결·읽기 대기의 타임아웃은 30초이며 자동 재시도하지 않습니다. 전송이 계속 진행되면 전체 다운로드에는 몇 분 이상 걸릴 수 있습니다. 다운로드 16MiB·XML 64MiB 제한을 두고 ZIP 파일을 디스크에 추출하지 않습니다. 오류 시 기존 검토 파일을 유지합니다. 네트워크 실패 시 연결을, 인증/IP·한도 오류 시 OpenDART 계정 설정을 확인하세요. 인증키나 원문 오류 메시지는 출력하지 않습니다.
+
+공식 계약은 [고유번호 개발가이드](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS001&apiId=2019018)를 따릅니다. 자동 테스트는 가상 ZIP/XML과 모의 응답을 사용합니다. 2026-11-24(한국 시간)에 실제 고유번호 파일 수신과 오프라인 CLI 변환을 별도로 확인했습니다. 결과는 [실데이터 검증 기록](docs/DATA-SOURCES.md#실제-파일-검증-기록)을 참고하세요.
+
+이미 받은 원본 ZIP이 있으면 인증키나 네트워크 없이 변환을 다시 검증할 수 있습니다.
+
+```sh
+python -m app.opendart --input-zip .local/corpcode.zip --output .local/dart-companies-reviewed.json
+```
+
+`--input-zip` 모드는 입력 파일 크기와 내부 구조를 같은 기준으로 검사하고 DB에는 쓰지 않습니다. 원본 ZIP 및 변환 결과는 `.local/` 등 Git 제외 경로에 보관하세요. 출력 파일이 있으면 다른 이름을 지정해야 합니다.
+
+종목 코드는 앞자리 0을 유지한 대문자 영문·숫자 6자리 문자열입니다. 실제 파일에서 영문 혼합 코드가 확인되어 조회·관리자·CSV 검사도 이 형식을 허용합니다. `fetched_at`은 온라인 수신 시각이며, `--input-zip` 변환은 원래 수신 시점을 알 수 없어 `null`로 기록합니다. `converted_at`은 변환 시각입니다.

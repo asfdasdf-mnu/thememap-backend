@@ -15,7 +15,7 @@ class StockWrite(ThemeWrite):
     market: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)]
 
 class StockCreate(StockWrite):
-    code: str = Field(pattern=r'^[0-9]{6}$')
+    code: str = Field(pattern=r'^[0-9A-Z]{6}$')
 
 class EvidenceWrite(AdminInput):
     reason: Content

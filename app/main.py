@@ -73,7 +73,7 @@ def create_app(database_url=None):
         return dict(theme=theme_summary(session, theme), items=[dict(code=s.code, name=s.name, market=s.market, description=s.description, **evidence(link)) for s, link in rows])
 
     @app.get('/api/stocks/{code}', response_model=StockDetail, tags=['종목'])
-    def stock_detail(session: DB, code: Annotated[str, Path(pattern=r'^[0-9]{6}$')]):
+    def stock_detail(session: DB, code: Annotated[str, Path(pattern=r'^[0-9A-Z]{6}$')]):
         stock = session.get(Stock, code)
         if stock is None:
             raise HTTPException(404, 'Stock not found')

@@ -26,7 +26,7 @@ def admin_router(sessions):
             yield session
     DB = Annotated[Session, Depends(get_session)]
     ThemeId = Annotated[int, Path(ge=1)]
-    Code = Annotated[str, Path(pattern=r'^[0-9]{6}$')]
+    Code = Annotated[str, Path(pattern=r'^[0-9A-Z]{6}$')]
 
     def find(session, model, identity):
         item = session.get(model, identity)

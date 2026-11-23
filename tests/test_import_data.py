@@ -118,3 +118,13 @@ def test_reject_empty_and_bad_shape(tmp_path):
         path.write_text(content)
         with pytest.raises(ValueError):
             read_rows(path)
+
+
+def test_alphanumeric_csv_import(engine, tmp_path):
+    path = tmp_path / 'alpha.csv'
+    values = row(stock_code='0068Y0').model_dump(mode='json')
+    values.update(is_sample='true', source_url='')
+    write_csv(path, values)
+    assert import_rows(engine, read_rows(path), apply=True)['new_stocks'] == 1
+    with session_factory(engine)() as session:
+        assert session.get(Stock, '0068Y0') is not None
