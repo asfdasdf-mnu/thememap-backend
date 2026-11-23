@@ -1,11 +1,14 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import create_app
+from app.migrate import migrate
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv('ADMIN_API_KEY', 'test-admin-key')
-    with TestClient(create_app(f'sqlite:///{tmp_path / "admin.db"}')) as client:
+    app = create_app(f'sqlite:///{tmp_path / "admin.db"}')
+    migrate(app.state.engine)
+    with TestClient(app) as client:
         client.headers['X-Admin-Key'] = 'test-admin-key'
         yield client
 
